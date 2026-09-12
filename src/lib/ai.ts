@@ -1,27 +1,15 @@
-const ANTHROPIC_API_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY
-
 async function callClaude(messages: Array<{ role: string; content: unknown }>, system?: string) {
-  if (!ANTHROPIC_API_KEY || ANTHROPIC_API_KEY === 'sk-ant-tu_key_aqui') {
-    throw new Error('Anthropic API key no configurada. Agrega VITE_ANTHROPIC_API_KEY en tu .env')
-  }
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch('/api/claude', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1500,
-      system,
-      messages
-    })
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ system, messages })
   })
-  if (!res.ok) throw new Error(`Claude API error: ${res.status}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({} as { error?: string }))
+    throw new Error(err.error || `Claude API error: ${res.status}`)
+  }
   const data = await res.json()
-  return data.content[0].text as string
+  return data.text as string
 }
 
 export async function generateProjectReport(projectName: string, photoUrls: string[], checklistSummary: string) {

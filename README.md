@@ -98,7 +98,7 @@ src/
 |----------|-------------|
 | `VITE_SUPABASE_URL` | URL de tu proyecto Supabase |
 | `VITE_SUPABASE_ANON_KEY` | Clave pública de Supabase |
-| `VITE_ANTHROPIC_API_KEY` | Clave de API de Anthropic |
+| `ANTHROPIC_API_KEY` | Clave de API de Anthropic (sin prefijo `VITE_`: se usa solo en `api/claude.js`, en el servidor) |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Clave pública de Stripe |
 
 ## Modo demo
