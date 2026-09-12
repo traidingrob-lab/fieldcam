@@ -5,6 +5,7 @@ import { useAppStore } from '@/store'
 import AppLayout from '@/components/layout/AppLayout'
 import AuthPage from '@/pages/AuthPage'
 import ProjectsPage from '@/pages/ProjectsPage'
+import ProjectDetailPage from '@/pages/ProjectDetailPage'
 import PhotosPage from '@/pages/PhotosPage'
 import ChecklistsPage from '@/pages/ChecklistsPage'
 import TeamPage from '@/pages/TeamPage'
@@ -48,6 +49,7 @@ export default function App() {
         }>
           <Route index element={<Navigate to="/app/projects" replace />} />
           <Route path="projects" element={<ProjectsPage />} />
+          <Route path="projects/:id" element={<ProjectDetailPage />} />
           <Route path="photos" element={<PhotosPage />} />
           <Route path="checklists" element={<ChecklistsPage />} />
           <Route path="team" element={<TeamPage />} />
