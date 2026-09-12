@@ -3,7 +3,8 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useToastStore } from '@/store'
 import { formatDate } from '@/lib/utils'
-import { ArrowLeft, MapPin, Image, CheckSquare, Calendar, Folder } from 'lucide-react'
+import ProjectFormModal from '@/components/ProjectFormModal'
+import { ArrowLeft, MapPin, Image, CheckSquare, Calendar, Folder, Pencil, Trash2 } from 'lucide-react'
 
 type Project = {
   id: string; name: string; description: string | null; status: string
@@ -24,6 +25,7 @@ export default function ProjectDetailPage() {
   const [notFound, setNotFound] = useState(false)
   const [photoCount, setPhotoCount] = useState(0)
   const [checklistCount, setChecklistCount] = useState(0)
+  const [editing, setEditing] = useState(false)
 
   useEffect(() => { loadProject() }, [id])
 
@@ -57,6 +59,30 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function handleStatusChange(status: string) {
+    if (!project) return
+    const prev = project
+    setProject({ ...project, status })
+    const { error } = await supabase.from('projects').update({ status }).eq('id', project.id)
+    if (error) {
+      setProject(prev)
+      addToast('Error al cambiar estado', 'error')
+    }
+  }
+
+  async function handleDelete() {
+    if (!project) return
+    if (!window.confirm('¿Eliminar este proyecto? También se borrarán sus fotos y checklists.')) return
+    try {
+      const { error } = await supabase.from('projects').delete().eq('id', project.id)
+      if (error) throw error
+      addToast('Proyecto eliminado', 'info')
+      navigate('/app/projects')
+    } catch (err: unknown) {
+      addToast((err as Error).message || 'Error al eliminar proyecto', 'error')
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
@@ -80,9 +106,19 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-5xl mx-auto">
-      <button onClick={() => navigate('/app/projects')} className="btn-ghost mb-4">
-        <ArrowLeft className="w-4 h-4" /> Proyectos
-      </button>
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => navigate('/app/projects')} className="btn-ghost">
+          <ArrowLeft className="w-4 h-4" /> Proyectos
+        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setEditing(true)} className="btn-ghost">
+            <Pencil className="w-4 h-4" /> Editar
+          </button>
+          <button onClick={handleDelete} className="btn-ghost text-red-500 hover:bg-red-50">
+            <Trash2 className="w-4 h-4" /> Eliminar
+          </button>
+        </div>
+      </div>
 
       <div className="card overflow-hidden mb-6">
         <div className="h-40 bg-brand-50 flex items-center justify-center relative">
@@ -91,12 +127,18 @@ export default function ProjectDetailPage() {
           ) : (
             <Folder className="w-12 h-12 text-gray-200" />
           )}
-          <span className={`absolute top-3 right-3 badge ${
-            project.status === 'active' ? 'badge-active' :
-            project.status === 'complete' ? 'badge-complete' : 'badge-pending'
-          }`}>
-            {STATUS_LABELS[project.status] || project.status}
-          </span>
+          <select
+            value={project.status}
+            onChange={(e) => handleStatusChange(e.target.value)}
+            className={`absolute top-3 right-3 badge border-0 cursor-pointer ${
+              project.status === 'active' ? 'badge-active' :
+              project.status === 'complete' ? 'badge-complete' : 'badge-pending'
+            }`}
+          >
+            {(['active', 'complete', 'pending'] as const).map((s) => (
+              <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+            ))}
+          </select>
         </div>
         <div className="p-5">
           <h1 className="text-xl font-semibold text-gray-900">{project.name}</h1>
@@ -137,6 +179,14 @@ export default function ProjectDetailPage() {
           </div>
         </Link>
       </div>
+
+      {editing && (
+        <ProjectFormModal
+          project={project}
+          onClose={() => setEditing(false)}
+          onSaved={loadProject}
+        />
+      )}
     </div>
   )
 }

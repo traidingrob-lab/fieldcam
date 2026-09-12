@@ -98,6 +98,7 @@ src/
 |----------|-------------|
 | `VITE_SUPABASE_URL` | URL de tu proyecto Supabase |
 | `VITE_SUPABASE_ANON_KEY` | Clave pública de Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | Clave service_role de Supabase (sin prefijo `VITE_`: acceso total a la BD, solo en `api/invite-member.js` y `api/report.js`) |
 | `ANTHROPIC_API_KEY` | Clave de API de Anthropic (sin prefijo `VITE_`: se usa solo en `api/claude.js`, en el servidor) |
 | `VITE_STRIPE_PUBLISHABLE_KEY` | Clave pública de Stripe |
 
