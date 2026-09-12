@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { useAppStore, useToastStore } from '@/store'
 import { analyzePhoto } from '@/lib/ai'
@@ -11,19 +12,41 @@ type Photo = {
   ai_description: string | null; project_id: string
 }
 
+type ProjectOption = { id: string; name: string }
+
 export default function PhotosPage() {
   const [photos, setPhotos] = useState<Photo[]>(DEMO_PHOTOS)
   const [uploading, setUploading] = useState(false)
   const [analyzing, setAnalyzing] = useState<string | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
   const [lightbox, setLightbox] = useState<Photo | null>(null)
+  const [projects, setProjects] = useState<ProjectOption[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const { user } = useAppStore()
   const { addToast } = useToastStore()
 
+  useEffect(() => { loadProjects() }, [])
+
+  async function loadProjects() {
+    try {
+      const { data, error } = await supabase.from('projects').select('id, name').order('created_at', { ascending: false })
+      if (error) throw error
+      setProjects(data || [])
+      if (data && data.length > 0) setSelectedProjectId(data[0].id)
+    } catch {
+      setProjects(DEMO_PROJECT_OPTIONS)
+      setSelectedProjectId(DEMO_PROJECT_OPTIONS[0].id)
+    }
+  }
+
   async function handleFileUpload(files: FileList | null) {
     if (!files || files.length === 0) return
+    if (!selectedProjectId) {
+      addToast('Selecciona un proyecto antes de subir fotos', 'error')
+      return
+    }
     setUploading(true)
     try {
       for (const file of Array.from(files)) {
@@ -50,7 +73,7 @@ export default function PhotosPage() {
         } catch {}
 
         const { data: photo } = await supabase.from('photos').insert({
-          project_id: 'demo',
+          project_id: selectedProjectId,
           user_id: user!.id,
           url,
           thumbnail_url: thumbUrl,
@@ -91,7 +114,7 @@ export default function PhotosPage() {
         id: Math.random().toString(36).slice(2),
         url, thumbnail_url: url, caption: null, tags: [],
         taken_at: new Date().toISOString(), lat: null, lng: null,
-        ai_description: null, project_id: 'demo'
+        ai_description: null, project_id: selectedProjectId || 'demo'
       }
       setPhotos((prev) => [newPhoto, ...prev])
       addToast('Foto agregada (modo demo)', 'info')
@@ -106,16 +129,27 @@ export default function PhotosPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Fotos</h1>
           <p className="text-sm text-gray-500 mt-0.5">{photos.length} fotos documentadas</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={() => cameraInputRef.current?.click()} className="btn-ghost">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            className="input w-auto min-w-40"
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+            disabled={projects.length === 0}
+          >
+            {projects.length === 0
+              ? <option value="">Sin proyectos</option>
+              : projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)
+            }
+          </select>
+          <button onClick={() => cameraInputRef.current?.click()} className="btn-ghost" disabled={!selectedProjectId}>
             <Camera className="w-4 h-4" /> Cámara
           </button>
-          <button onClick={() => fileInputRef.current?.click()} className="btn-primary" disabled={uploading}>
+          <button onClick={() => fileInputRef.current?.click()} className="btn-primary" disabled={uploading || !selectedProjectId}>
             {uploading
               ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <><Upload className="w-4 h-4" /> Subir fotos</>
@@ -123,6 +157,12 @@ export default function PhotosPage() {
           </button>
         </div>
       </div>
+
+      {projects.length === 0 && (
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+          Necesitas crear un proyecto antes de subir fotos. <Link to="/app/projects" className="underline font-medium">Crear proyecto</Link>
+        </div>
+      )}
 
       {/* Hidden file inputs */}
       <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
@@ -221,6 +261,14 @@ export default function PhotosPage() {
     </div>
   )
 }
+
+const DEMO_PROJECT_OPTIONS: ProjectOption[] = [
+  { id: '1', name: 'Remodelación López' },
+  { id: '2', name: 'Techo Martínez' },
+  { id: '3', name: 'Plomería Sánchez' },
+  { id: '4', name: 'Eléctrico García' },
+  { id: '5', name: 'Pintura Oficina Flores' }
+]
 
 const DEMO_PHOTOS: Photo[] = Array.from({ length: 12 }, (_, i) => ({
   id: `demo-${i}`,
