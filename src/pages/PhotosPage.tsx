@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useAppStore, useToastStore } from '@/store'
 import { analyzePhoto } from '@/lib/ai'
 import { compressImage, createThumbnail, fileToBase64, formatDate, PHOTO_TAGS } from '@/lib/utils'
-import { Camera, Upload, Sparkles, Tag, Download, X, ZoomIn, MapPin } from 'lucide-react'
+import { Camera, Upload, Sparkles, Tag, X, ZoomIn, MapPin, Trash2 } from 'lucide-react'
 
 type Photo = {
   id: string; url: string; thumbnail_url: string | null; caption: string | null
@@ -15,7 +15,8 @@ type Photo = {
 type ProjectOption = { id: string; name: string }
 
 export default function PhotosPage() {
-  const [photos, setPhotos] = useState<Photo[]>(DEMO_PHOTOS)
+  const [photos, setPhotos] = useState<Photo[]>([])
+  const [photosLoading, setPhotosLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [analyzing, setAnalyzing] = useState<string | null>(null)
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
@@ -29,6 +30,11 @@ export default function PhotosPage() {
 
   useEffect(() => { loadProjects() }, [])
 
+  useEffect(() => {
+    if (selectedProjectId) loadPhotos()
+    else setPhotos([])
+  }, [selectedProjectId])
+
   async function loadProjects() {
     try {
       const { data, error } = await supabase.from('projects').select('id, name').order('created_at', { ascending: false })
@@ -38,6 +44,50 @@ export default function PhotosPage() {
     } catch {
       setProjects(DEMO_PROJECT_OPTIONS)
       setSelectedProjectId(DEMO_PROJECT_OPTIONS[0].id)
+    }
+  }
+
+  async function loadPhotos() {
+    setPhotosLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('photos')
+        .select('*')
+        .eq('project_id', selectedProjectId)
+        .order('taken_at', { ascending: false })
+      if (error) throw error
+      setPhotos(data || [])
+    } catch (err: unknown) {
+      setPhotos([])
+      addToast((err as Error).message || 'Error al cargar fotos', 'error')
+    } finally {
+      setPhotosLoading(false)
+    }
+  }
+
+  function extractStoragePath(publicUrl: string): string | null {
+    const marker = '/photos/'
+    const idx = publicUrl.indexOf(marker)
+    return idx >= 0 ? publicUrl.slice(idx + marker.length) : null
+  }
+
+  async function handleDeletePhoto(photo: Photo) {
+    if (!window.confirm('¿Eliminar esta foto?')) return
+    try {
+      const paths = [photo.url, photo.thumbnail_url]
+        .filter((u): u is string => !!u)
+        .map(extractStoragePath)
+        .filter((p): p is string => !!p)
+      if (paths.length > 0) {
+        await supabase.storage.from('photos').remove(paths)
+      }
+      const { error } = await supabase.from('photos').delete().eq('id', photo.id)
+      if (error) throw error
+      setPhotos((prev) => prev.filter((p) => p.id !== photo.id))
+      if (lightbox?.id === photo.id) setLightbox(null)
+      addToast('Foto eliminada', 'info')
+    } catch (err: unknown) {
+      addToast((err as Error).message || 'Error al eliminar foto', 'error')
     }
   }
 
@@ -107,17 +157,8 @@ export default function PhotosPage() {
           }
         }
       }
-    } catch {
-      // Demo mode: add fake photo
-      const url = URL.createObjectURL(files[0])
-      const newPhoto: Photo = {
-        id: Math.random().toString(36).slice(2),
-        url, thumbnail_url: url, caption: null, tags: [],
-        taken_at: new Date().toISOString(), lat: null, lng: null,
-        ai_description: null, project_id: selectedProjectId || 'demo'
-      }
-      setPhotos((prev) => [newPhoto, ...prev])
-      addToast('Foto agregada (modo demo)', 'info')
+    } catch (err: unknown) {
+      addToast((err as Error).message || 'Error al subir la foto', 'error')
     } finally {
       setUploading(false)
     }
@@ -190,39 +231,53 @@ export default function PhotosPage() {
       </div>
 
       {/* Photo grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-        {filtered.map((photo) => (
-          <div
-            key={photo.id}
-            className="photo-thumb aspect-square relative rounded-lg overflow-hidden bg-gray-100 cursor-pointer group"
-            onClick={() => setLightbox(photo)}
-          >
-            {photo.thumbnail_url || photo.url
-              ? <img src={photo.thumbnail_url || photo.url} alt={photo.caption || ''} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center"><Camera className="w-8 h-8 text-gray-300" /></div>
-            }
-            {analyzing === photo.id && (
-              <div className="absolute inset-0 bg-brand-400/80 flex flex-col items-center justify-center gap-1">
-                <Sparkles className="w-5 h-5 text-white animate-pulse" />
-                <span className="text-xs text-white">Analizando...</span>
-              </div>
-            )}
-            <div className="photo-overlay absolute inset-0 bg-black/40 opacity-0 flex flex-col justify-between p-2">
-              <div className="flex flex-wrap gap-1">
-                {photo.tags.slice(0, 2).map((t) => (
-                  <span key={t} className="text-xs bg-black/50 text-white px-1.5 py-0.5 rounded">{t}</span>
-                ))}
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-white/80">{formatDate(photo.taken_at)}</span>
-                <ZoomIn className="w-4 h-4 text-white" />
+      {photosLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+          {[...Array(10)].map((_, i) => (
+            <div key={i} className="aspect-square skeleton rounded-lg" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
+          {filtered.map((photo) => (
+            <div
+              key={photo.id}
+              className="photo-thumb aspect-square relative rounded-lg overflow-hidden bg-gray-100 cursor-pointer group"
+              onClick={() => setLightbox(photo)}
+            >
+              {photo.thumbnail_url || photo.url
+                ? <img src={photo.thumbnail_url || photo.url} alt={photo.caption || ''} className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center"><Camera className="w-8 h-8 text-gray-300" /></div>
+              }
+              {analyzing === photo.id && (
+                <div className="absolute inset-0 bg-brand-400/80 flex flex-col items-center justify-center gap-1">
+                  <Sparkles className="w-5 h-5 text-white animate-pulse" />
+                  <span className="text-xs text-white">Analizando...</span>
+                </div>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo) }}
+                className="photo-overlay absolute top-1.5 right-1.5 p-1.5 bg-black/50 hover:bg-red-500 rounded-md opacity-0 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-white" />
+              </button>
+              <div className="photo-overlay absolute inset-0 bg-black/40 opacity-0 flex flex-col justify-between p-2 pointer-events-none">
+                <div className="flex flex-wrap gap-1">
+                  {photo.tags.slice(0, 2).map((t) => (
+                    <span key={t} className="text-xs bg-black/50 text-white px-1.5 py-0.5 rounded">{t}</span>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-white/80">{formatDate(photo.taken_at)}</span>
+                  <ZoomIn className="w-4 h-4 text-white" />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      {filtered.length === 0 && (
+      {!photosLoading && filtered.length === 0 && (
         <div className="text-center py-16">
           <Camera className="w-12 h-12 text-gray-200 mx-auto mb-3" />
           <p className="text-gray-500">No hay fotos. ¡Captura la primera!</p>
@@ -245,14 +300,22 @@ export default function PhotosPage() {
                   <p className="text-sm text-white/90">{lightbox.ai_description}</p>
                 </div>
               )}
-              <div className="flex items-center gap-4 text-sm text-white/60">
-                {lightbox.tags.length > 0 && (
-                  <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{lightbox.tags.join(', ')}</span>
-                )}
-                {lightbox.lat && (
-                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{lightbox.lat.toFixed(4)}, {lightbox.lng?.toFixed(4)}</span>
-                )}
-                <span>{formatDate(lightbox.taken_at)}</span>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 text-sm text-white/60">
+                  {lightbox.tags.length > 0 && (
+                    <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{lightbox.tags.join(', ')}</span>
+                  )}
+                  {lightbox.lat && (
+                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{lightbox.lat.toFixed(4)}, {lightbox.lng?.toFixed(4)}</span>
+                  )}
+                  <span>{formatDate(lightbox.taken_at)}</span>
+                </div>
+                <button
+                  onClick={() => handleDeletePhoto(lightbox)}
+                  className="btn-ghost text-red-400 border-white/20 hover:bg-white/10 flex-shrink-0"
+                >
+                  <Trash2 className="w-4 h-4" /> Eliminar
+                </button>
               </div>
             </div>
           </div>
@@ -270,12 +333,3 @@ const DEMO_PROJECT_OPTIONS: ProjectOption[] = [
   { id: '5', name: 'Pintura Oficina Flores' }
 ]
 
-const DEMO_PHOTOS: Photo[] = Array.from({ length: 12 }, (_, i) => ({
-  id: `demo-${i}`,
-  url: `https://picsum.photos/seed/${i + 10}/600/600`,
-  thumbnail_url: `https://picsum.photos/seed/${i + 10}/300/300`,
-  caption: null,
-  tags: [PHOTO_TAGS[i % PHOTO_TAGS.length]],
-  taken_at: new Date(Date.now() - 86400000 * (i + 1)).toISOString(),
-  lat: null, lng: null, ai_description: null, project_id: 'demo'
-}))

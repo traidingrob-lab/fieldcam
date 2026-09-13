@@ -11,6 +11,7 @@ import ChecklistsPage from '@/pages/ChecklistsPage'
 import TeamPage from '@/pages/TeamPage'
 import ReportsPage from '@/pages/ReportsPage'
 import PaymentsPage from '@/pages/PaymentsPage'
+import ShareReportPage from '@/pages/ShareReportPage'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAppStore()
@@ -42,6 +43,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<AuthPage />} />
+        <Route path="/share/report/:token" element={<ShareReportPage />} />
         <Route path="/app" element={
           <ProtectedRoute>
             <AppLayout />

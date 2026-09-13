@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
-import { useAppStore, useToastStore } from '@/store'
-import { formatRelative, PROJECT_TYPES } from '@/lib/utils'
+import { useToastStore } from '@/store'
+import { formatRelative } from '@/lib/utils'
+import ProjectFormModal from '@/components/ProjectFormModal'
 import {
-  Plus, Folder, MapPin, Image, Search, Filter, LayoutGrid, List, X
+  Plus, Folder, MapPin, Image, Search, LayoutGrid, List, Pencil, Trash2
 } from 'lucide-react'
 
 type Project = {
@@ -26,7 +27,7 @@ export default function ProjectsPage() {
   const [search, setSearch] = useState('')
   const [view, setView] = useState<'grid' | 'list'>('grid')
   const [showModal, setShowModal] = useState(false)
-  const { user } = useAppStore()
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
   const { addToast } = useToastStore()
   const navigate = useNavigate()
 
@@ -46,6 +47,28 @@ export default function ProjectsPage() {
       setProjects(DEMO_PROJECTS)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleStatusChange(id: string, status: string) {
+    const prev = projects
+    setProjects((cur) => cur.map((p) => (p.id === id ? { ...p, status } : p)))
+    const { error } = await supabase.from('projects').update({ status }).eq('id', id)
+    if (error) {
+      setProjects(prev)
+      addToast('Error al cambiar estado', 'error')
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('¿Eliminar este proyecto? También se borrarán sus fotos y checklists.')) return
+    try {
+      const { error } = await supabase.from('projects').delete().eq('id', id)
+      if (error) throw error
+      setProjects((cur) => cur.filter((p) => p.id !== id))
+      addToast('Proyecto eliminado', 'info')
+    } catch (err: unknown) {
+      addToast((err as Error).message || 'Error al eliminar proyecto', 'error')
     }
   }
 
@@ -111,7 +134,14 @@ export default function ProjectsPage() {
         </div>
       ) : view === 'grid' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {filtered.map((p) => <ProjectCard key={p.id} project={p} onClick={() => navigate(`/app/projects/${p.id}`)} />)}
+          {filtered.map((p) => (
+            <ProjectCard key={p.id} project={p}
+              onClick={() => navigate(`/app/projects/${p.id}`)}
+              onEdit={() => setEditingProject(p)}
+              onDelete={() => handleDelete(p.id)}
+              onStatusChange={(status) => handleStatusChange(p.id, status)}
+            />
+          ))}
           <button
             onClick={() => setShowModal(true)}
             className="card border-dashed border-2 border-gray-300 flex flex-col items-center justify-center gap-2 h-48 hover:border-brand-400 hover:bg-brand-50 transition-colors group"
@@ -122,7 +152,14 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-2">
-          {filtered.map((p) => <ProjectRow key={p.id} project={p} onClick={() => navigate(`/app/projects/${p.id}`)} />)}
+          {filtered.map((p) => (
+            <ProjectRow key={p.id} project={p}
+              onClick={() => navigate(`/app/projects/${p.id}`)}
+              onEdit={() => setEditingProject(p)}
+              onDelete={() => handleDelete(p.id)}
+              onStatusChange={(status) => handleStatusChange(p.id, status)}
+            />
+          ))}
         </div>
       )}
 
@@ -133,12 +170,15 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {showModal && <NewProjectModal onClose={() => setShowModal(false)} onCreated={loadProjects} />}
+      {showModal && <ProjectFormModal onClose={() => setShowModal(false)} onSaved={loadProjects} />}
+      {editingProject && <ProjectFormModal project={editingProject} onClose={() => setEditingProject(null)} onSaved={loadProjects} />}
     </div>
   )
 }
 
-function ProjectCard({ project: p, onClick }: { project: Project; onClick: () => void }) {
+function ProjectCard({ project: p, onClick, onEdit, onDelete, onStatusChange }: {
+  project: Project; onClick: () => void; onEdit: () => void; onDelete: () => void; onStatusChange: (status: string) => void
+}) {
   const colors = ['bg-brand-50', 'bg-blue-50', 'bg-amber-50', 'bg-purple-50', 'bg-pink-50']
   const color = colors[p.name.charCodeAt(0) % colors.length]
   return (
@@ -149,15 +189,32 @@ function ProjectCard({ project: p, onClick }: { project: Project; onClick: () =>
         ) : (
           <Folder className="w-10 h-10 text-gray-200" />
         )}
-        <span className={`absolute top-2 right-2 badge ${
-          p.status === 'active' ? 'badge-active' :
-          p.status === 'complete' ? 'badge-complete' : 'badge-pending'
-        }`}>
-          {STATUS_LABELS[p.status] || p.status}
-        </span>
+        <select
+          value={p.status}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => onStatusChange(e.target.value)}
+          className={`absolute top-2 right-2 badge border-0 cursor-pointer ${
+            p.status === 'active' ? 'badge-active' :
+            p.status === 'complete' ? 'badge-complete' : 'badge-pending'
+          }`}
+        >
+          {(['active', 'complete', 'pending'] as const).map((s) => (
+            <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+          ))}
+        </select>
       </div>
       <div className="p-3">
-        <p className="font-medium text-sm text-gray-900 truncate">{p.name}</p>
+        <div className="flex items-start justify-between gap-1">
+          <p className="font-medium text-sm text-gray-900 truncate">{p.name}</p>
+          <div className="flex gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={(e) => { e.stopPropagation(); onEdit() }} className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="p-1 hover:bg-red-50 rounded text-gray-400 hover:text-red-500">
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
         <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
           {p.city && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{p.city}</span>}
           <span className="flex items-center gap-1"><Image className="w-3 h-3" />{p.photo_count || 0} fotos</span>
@@ -168,7 +225,9 @@ function ProjectCard({ project: p, onClick }: { project: Project; onClick: () =>
   )
 }
 
-function ProjectRow({ project: p, onClick }: { project: Project; onClick: () => void }) {
+function ProjectRow({ project: p, onClick, onEdit, onDelete, onStatusChange }: {
+  project: Project; onClick: () => void; onEdit: () => void; onDelete: () => void; onStatusChange: (status: string) => void
+}) {
   return (
     <div className="card p-4 flex items-center gap-4 cursor-pointer hover:border-gray-300 transition-colors" onClick={onClick}>
       <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center flex-shrink-0">
@@ -181,86 +240,25 @@ function ProjectRow({ project: p, onClick }: { project: Project; onClick: () => 
           {formatRelative(p.created_at)}
         </p>
       </div>
-      <span className={`badge ${
-        p.status === 'active' ? 'badge-active' :
-        p.status === 'complete' ? 'badge-complete' : 'badge-pending'
-      }`}>
-        {STATUS_LABELS[p.status] || p.status}
-      </span>
-    </div>
-  )
-}
-
-function NewProjectModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-  const { user } = useAppStore()
-  const { addToast } = useToastStore()
-  const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ name: '', description: '', type: '', city: '', address: '' })
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    try {
-      const { error } = await supabase.from('projects').insert({
-        name: form.name,
-        description: form.description || null,
-        city: form.city || null,
-        address: form.address || null,
-        status: 'active',
-        owner_id: user!.id
-      })
-      if (error) throw error
-      addToast('Proyecto creado exitosamente', 'success')
-      onCreated()
-      onClose()
-    } catch (err: unknown) {
-      addToast((err as Error).message || 'Error al crear proyecto', 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
-      <div className="bg-white rounded-xl w-full max-w-md animate-fade-in">
-        <div className="flex items-center justify-between p-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Nuevo proyecto</h2>
-          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg"><X className="w-4 h-4" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-4 space-y-3">
-          <div>
-            <label className="label">Nombre del proyecto *</label>
-            <input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Remodelación casa López" required />
-          </div>
-          <div>
-            <label className="label">Tipo de trabajo</label>
-            <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-              <option value="">Selecciona un tipo...</option>
-              {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Ciudad</label>
-              <input className="input" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="CDMX" />
-            </div>
-            <div>
-              <label className="label">Dirección</label>
-              <input className="input" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} placeholder="Calle 123" />
-            </div>
-          </div>
-          <div>
-            <label className="label">Descripción</label>
-            <textarea className="input resize-none h-20" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Detalla el trabajo a realizar..." />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-ghost flex-1 justify-center">Cancelar</button>
-            <button type="submit" disabled={loading} className="btn-primary flex-1 justify-center">
-              {loading ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Crear proyecto'}
-            </button>
-          </div>
-        </form>
-      </div>
+      <select
+        value={p.status}
+        onClick={(e) => e.stopPropagation()}
+        onChange={(e) => onStatusChange(e.target.value)}
+        className={`badge border-0 cursor-pointer flex-shrink-0 ${
+          p.status === 'active' ? 'badge-active' :
+          p.status === 'complete' ? 'badge-complete' : 'badge-pending'
+        }`}
+      >
+        {(['active', 'complete', 'pending'] as const).map((s) => (
+          <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+        ))}
+      </select>
+      <button onClick={(e) => { e.stopPropagation(); onEdit() }} className="p-1.5 hover:bg-gray-100 rounded-md text-gray-400 hover:text-gray-600 flex-shrink-0">
+        <Pencil className="w-3.5 h-3.5" />
+      </button>
+      <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="p-1.5 hover:bg-red-50 rounded-md text-gray-400 hover:text-red-500 flex-shrink-0">
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
     </div>
   )
 }
