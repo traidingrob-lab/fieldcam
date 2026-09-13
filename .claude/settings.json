@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "autoMode": {
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: Supabase (PostgreSQL + Storage + Auth + Realtime); Stripe (payments); Anthropic Claude API — as used by this project",
+      "**Repository visibility**: assume private unless the remote host and repo name indicate otherwise, or a visibility check in the transcript shows public",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: .env file (gitignored) — VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY, VITE_STRIPE_PUBLISHABLE_KEY; service role key restricted to api/invite-member.js and api/report.js per .env.example comments",
+      "**Default / protected branches**: not queryable here (no remotes configured, gh check not queryable)",
+      "**CI/CD deploy targets**: Vercel (per README deploy instructions)",
+      "**Network posture**: None configured",
+      "**Host containment**: None configured — assume Claude Code runs on an ordinary developer machine or CI runner with open internet",
+      "**Source control**: The trusted repo (local checkout at C:\\Users\\Robha\\Downloads\\fieldcam (3)\\fieldcam) — no remotes configured",
+      "**Trusted internal domains**: None configured",
+      "**Trusted cloud buckets**: None configured",
+      "**Key internal services**: Supabase project (per .env.example, project-specific URL); Anthropic API (console.anthropic.com); Stripe (dashboard.stripe.com) — as used by this project only",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: .env and .env.example (Supabase service role key, Anthropic API key, Stripe keys) — share only with audiences cleared for backend secrets; SUPABASE_SERVICE_ROLE_KEY specifically scoped to api/invite-member.js and api/report.js per project convention",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries `prod` or `production` as a whole word or name segment",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word or name segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development (FieldCam — photo documentation app for contractors)",
+      "**Trusted repo**: The local checkout at C:\\Users\\Robha\\Downloads\\fieldcam (3)\\fieldcam — no configured remotes found",
+      "**Org-specific CLiIs**: None configured",
+      "**Org-specific CLIs**: None configured"
+    ]
+  }
+}
