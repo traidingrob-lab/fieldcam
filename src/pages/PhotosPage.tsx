@@ -139,8 +139,8 @@ export default function PhotosPage() {
           // Auto-analyze with AI
           setAnalyzing(photo.id)
           try {
-            const b64 = await fileToBase64(file)
-            const result = await analyzePhoto(b64, file.type as 'image/jpeg')
+            const b64 = await fileToBase64(compressed)
+            const result = await analyzePhoto(b64, 'image/jpeg')
             await supabase.from('photos').update({
               ai_description: result.description,
               tags: result.tags || [],
