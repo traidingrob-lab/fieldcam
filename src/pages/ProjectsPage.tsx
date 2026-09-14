@@ -10,7 +10,7 @@ import {
 
 type Project = {
   id: string; name: string; description: string | null; status: string
-  address: string | null; city: string | null; cover_photo_url: string | null
+  address: string | null; city: string | null; work_type: string | null; cover_photo_url: string | null
   created_at: string; photo_count?: number
 }
 
@@ -264,9 +264,9 @@ function ProjectRow({ project: p, onClick, onEdit, onDelete, onStatusChange }: {
 }
 
 const DEMO_PROJECTS: Project[] = [
-  { id: '1', name: 'Remodelación López', description: null, status: 'active', address: 'Av. Insurgentes 456', city: 'Guadalajara', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 2).toISOString(), photo_count: 47 },
-  { id: '2', name: 'Techo Martínez', description: null, status: 'complete', address: null, city: 'CDMX', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 10).toISOString(), photo_count: 83 },
-  { id: '3', name: 'Plomería Sánchez', description: null, status: 'pending', address: null, city: 'Monterrey', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 1).toISOString(), photo_count: 12 },
-  { id: '4', name: 'Eléctrico García', description: null, status: 'active', address: null, city: 'Puebla', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 5).toISOString(), photo_count: 29 },
-  { id: '5', name: 'Pintura Oficina Flores', description: null, status: 'active', address: null, city: 'CDMX', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 3).toISOString(), photo_count: 55 },
+  { id: '1', name: 'Remodelación López', description: null, status: 'active', address: 'Av. Insurgentes 456', city: 'Guadalajara', work_type: 'Remodelación interior', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 2).toISOString(), photo_count: 47 },
+  { id: '2', name: 'Techo Martínez', description: null, status: 'complete', address: null, city: 'CDMX', work_type: 'Techos e impermeabilización', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 10).toISOString(), photo_count: 83 },
+  { id: '3', name: 'Plomería Sánchez', description: null, status: 'pending', address: null, city: 'Monterrey', work_type: 'Plomería e instalaciones hidráulicas', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 1).toISOString(), photo_count: 12 },
+  { id: '4', name: 'Eléctrico García', description: null, status: 'active', address: null, city: 'Puebla', work_type: 'Electricidad', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 5).toISOString(), photo_count: 29 },
+  { id: '5', name: 'Pintura Oficina Flores', description: null, status: 'active', address: null, city: 'CDMX', work_type: 'Pintura y acabados', cover_photo_url: null, created_at: new Date(Date.now() - 86400000 * 3).toISOString(), photo_count: 55 },
 ]

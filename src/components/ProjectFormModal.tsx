@@ -10,6 +10,7 @@ type ProjectLike = {
   description: string | null
   city: string | null
   address: string | null
+  work_type: string | null
 }
 
 export default function ProjectFormModal({ project, onClose, onSaved }: {
@@ -21,7 +22,7 @@ export default function ProjectFormModal({ project, onClose, onSaved }: {
   const [form, setForm] = useState({
     name: project?.name || '',
     description: project?.description || '',
-    type: '',
+    work_type: project?.work_type || '',
     city: project?.city || '',
     address: project?.address || ''
   })
@@ -34,6 +35,7 @@ export default function ProjectFormModal({ project, onClose, onSaved }: {
         const { error } = await supabase.from('projects').update({
           name: form.name,
           description: form.description || null,
+          work_type: form.work_type || null,
           city: form.city || null,
           address: form.address || null
         }).eq('id', project.id)
@@ -43,6 +45,7 @@ export default function ProjectFormModal({ project, onClose, onSaved }: {
         const { error } = await supabase.from('projects').insert({
           name: form.name,
           description: form.description || null,
+          work_type: form.work_type || null,
           city: form.city || null,
           address: form.address || null,
           status: 'active',
@@ -74,7 +77,7 @@ export default function ProjectFormModal({ project, onClose, onSaved }: {
           </div>
           <div>
             <label className="label">Tipo de trabajo</label>
-            <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+            <select className="input" value={form.work_type} onChange={(e) => setForm({ ...form, work_type: e.target.value })}>
               <option value="">Selecciona un tipo...</option>
               {PROJECT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
